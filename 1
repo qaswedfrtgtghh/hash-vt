@@ -1,0 +1,47 @@
+import re, requests
+ 
+#Declarations
+vendors = ['McAfee', 'Symantec', 'Sophos', 'Cylance', 'CrowdStrike', 'Avira', 'Microsoft', 'SentinelOne','TrendMicro']
+resultsfile = open("results.txt", "a")
+url = 'https://www.virustotal.com/vtapi/v2/file/report'
+ 
+#reading the hashes file and building initial array
+with open('hashes.txt', 'r') as file:
+  hashes = re.sub(r"\W+", ',', file.read()).split(',')
+ 
+#Request loop
+while len(hashes) > 1:  
+  if len(hashes)==5:
+    batchsize=3
+  else:
+    batchsize=4
+  if len(hashes)>=4:
+    batch = ','.join(hashes[:batchsize])
+  else:
+    batch = ','.join(hashes)
+  params = {
+    'apikey':'0571ea0dbe0f753ee3c7cff54a94169051819057e38559aaae13e735692ff46a',# <==enter your personal virustotal API key between the single quotes
+    'resource': batch
+  }
+ 
+  #Response handling, formatting and writing
+  responses = requests.get(url, params=params)
+  for response in responses.json():
+    if response['response_code'] == 0:
+      resultsfile.write(f"{response['resource']} - No matches found\n")
+    else:
+      resultsfile.write(f"{response['resource']}\n")
+      for vendor in vendors:
+        detected = response['scans'].get(vendor)
+        if detected:
+          resultsfile.write(f"  {vendor} detected - {str(response['scans'][vendor]['detected'])}\n")
+        else:
+          resultsfile.write(f"  {vendor} - Unable to process file\n")
+    resultsfile.write('\n')
+ 
+  #Removing hashes from last request and cleaning array.
+  hashes = hashes[batchsize:]
+  if hashes.count(''):
+    hashes.remove('')
+ 
+resultsfile.close()
